@@ -76,10 +76,15 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
   char msg[24];
-  uint32_t adcRaw;
+  int32_t adcRaw;
   int len;
-  uint32_t remoteRaw;
-  int32_t centered;
+  int16_t cmd;
+  int32_t error;
+  int32_t prevError = 0;
+  int32_t dTerm;
+  float p = 0.05;
+  float d = 2.5;
+  uint8_t printCount = 0;
 
 
   /* USER CODE END 1 */
@@ -109,6 +114,13 @@ int main(void)
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
   HAL_UART_Transmit(&huart2, (uint8_t*)"BOOT\r\n", 6, HAL_MAX_DELAY);
+
+  //motor driver, battery test
+//  motor_set(1000);
+//  HAL_Delay(2000);
+//  motor_set(-1000);
+//  HAL_Delay(2000);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -119,26 +131,29 @@ int main(void)
 
   /* USER CODE BEGIN 3 */
 
-	// Read PA0 (lever) and PC0 (remote) in single-conversion mode.
 	adcRaw = read_adc_channel(ADC_CHANNEL_5);
-	remoteRaw = read_adc_channel(ADC_CHANNEL_1);
 
-    //print lever angle
-    len = snprintf(msg, sizeof(msg), "%lu\r\n", adcRaw);
-    HAL_UART_Transmit(&huart2, (uint8_t *)msg, (uint16_t)len, HAL_MAX_DELAY);
-    HAL_Delay(100);
+	if (adcRaw < 128)  adcRaw = 128;
+	if (adcRaw > 2650) adcRaw = 2650;
+	adcRaw -= 128;   // 0 - 2522
+	adcRaw -= 1252;  // -1252 - 1270, zero = on target
 
-    //set motor based on remote input
-    centered = (int32_t)remoteRaw - 2048;     // "center" the input. shift the readings so they can be positive/negative
-    if (centered > -40 && centered < 40) centered = 0; // deadband (~2%)
+	error = adcRaw;
 
-    int32_t cmd = (centered * 3999) / 2047;           // multiply to equal PWM range
-    if (cmd > 3999) cmd = 3999;
-    if (cmd < -3999) cmd = -3999;
+	dTerm = error - prevError;
+	cmd = (int16_t)(p * (float)error + d * (float)dTerm);
+	prevError = error;
 
-    motor_set(cmd);
+	motor_set(cmd);
 
-
+//	// print every 10 loops (~100ms) without stalling the controller
+//	if (++printCount >= 10) {
+//	    printCount = 0;
+//	    len = snprintf(msg, sizeof(msg), "%ld %d\r\n", error, cmd);
+//	    HAL_UART_Transmit(&huart2, (uint8_t *)msg, (uint16_t)len, HAL_MAX_DELAY);
+//	}
+//
+	HAL_Delay(2);
 
 
   }
@@ -434,11 +449,11 @@ static void MX_GPIO_Init(void)
       if (cmd < -3999) cmd = -3999;
 
       if (cmd >= 0) {
-          __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, (uint16_t)cmd); // RPWM
-          __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);             // LPWM
-      } else {
           __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);
           __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, (uint16_t)(-cmd));
+      } else {
+          __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, (uint16_t)cmd); // RPWM
+          __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);             // LPWM
       }
   }
 
