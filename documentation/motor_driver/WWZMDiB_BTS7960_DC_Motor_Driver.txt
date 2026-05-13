@@ -1,0 +1,6 @@
+vcc, GND - 5V
+R_IS - measure current going to motor
+L_IS - measure current going to motor
+R_EN, L_EN - enable directions, tie high
+RPWM - send PWM signal to control speed in R direction
+LPWM - send PWM signal to control speed in L directions

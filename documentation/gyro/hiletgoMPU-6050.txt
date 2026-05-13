@@ -1,0 +1,25 @@
+RESOURCES
+github driver examples: https://github.com/EmbeddedSam/MPU-6050
+
+arduino guide: https://lastminuteengineers.com/mpu6050-accel-gyro-arduino-tutorial/
+
+video: https://www.youtube.com/watch?v=HHhVg4eAT_c
+
+arduino guide: https://dronebotworkshop.com/mpu-6050-level/
+
+arduino guide: https://howtomechatronics.com/tutorials/arduino/arduino-and-mpu6050-accelerometer-and-gyroscope-tutorial/
+
+PINOUT
+VCC is the power supply pin. Connect it to the 5V pin on the Arduino.
+
+GND is the ground pin. Connect it to the Arduino’s GND.
+
+SCL is the serial clock pin used for the I2C interface.
+
+SDA is the serial data pin for the I2C interface.
+
+XDA is the serial data pin for an auxiliary I2C interface. You can use it to connect additional sensors, like a magnetometer, directly to the MPU6050.
+
+XCL is the serial clock pin used for an auxiliary I2C interface. It works with XDA to communicate with those extra external sensors.
+
+

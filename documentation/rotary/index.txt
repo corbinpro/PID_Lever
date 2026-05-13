@@ -1,0 +1,2 @@
+Center Position (on): This occurs when the flat side of the D-shaft is oriented directly toward the electrical connector pins.
+Physical Orientation: When the flat side of the shaft is facing away from the pins (toward the top of the module), you are in the deadzone.
