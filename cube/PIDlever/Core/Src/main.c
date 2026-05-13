@@ -77,15 +77,16 @@ int main(void)
   /* USER CODE BEGIN 1 */
   char msg[24];
   int32_t adcRaw;
+  float filtered = 0.0f;
   int len;
   int16_t cmd;
   int32_t error;
   int32_t prevError = 0;
   int32_t dTerm;
   int32_t iAccum = 0; // running accumulator, add with prevError
-  float p = 0.05;
-  float i = 0.00035;
-  float d = 2.5;
+  float p = 4.50;
+  float i = 0.001;
+  float d = 30.0;
 
 
 
@@ -135,8 +136,12 @@ int main(void)
     /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-
+	//read pos sensor
 	adcRaw = read_adc_channel(ADC_CHANNEL_5);
+	//filter sensor readings
+	filtered = 0.15f * (float)adcRaw + 0.85f * filtered;
+	adcRaw = (int32_t)filtered;
+
 
 	if (adcRaw < 128)  adcRaw = 128;
 	if (adcRaw > 2650) adcRaw = 2650;
@@ -151,18 +156,23 @@ int main(void)
 	if (iAccum >  50000) iAccum =  50000;
 	if (iAccum < -50000) iAccum = -50000;
 
-	cmd = (int16_t)(p * (float)error + i * (float)iAccum + d * (float)dTerm);
+	int16_t cmdTarget = (int16_t)(p * (float)error + i * (float)iAccum + d * (float)dTerm);
+	int16_t maxStep = 50;  // max change per 2ms loop — tune this
+	if (cmdTarget - cmd >  maxStep) cmd += maxStep;
+	else if (cmd - cmdTarget >  maxStep) cmd -= maxStep;
+	else cmd  = cmdTarget;
+
 	prevError = error;
 
 	motor_set(cmd);
 
-//	// print every 10 loops (~100ms) without stalling the controller
-//	if (++printCount >= 10) {
-//	    printCount = 0;
-//	    len = snprintf(msg, sizeof(msg), "%ld %d\r\n", error, cmd);
-//	    HAL_UART_Transmit(&huart2, (uint8_t *)msg, (uint16_t)len, HAL_MAX_DELAY);
-//	}
-//
+	// print every 10 loops (~100ms) without stalling the controller
+	if (++printCount >= 10) {
+	    printCount = 0;
+	    len = snprintf(msg, sizeof(msg), "%ld %d\r\n", error, cmd);
+	    HAL_UART_Transmit(&huart2, (uint8_t *)msg, (uint16_t)len, HAL_MAX_DELAY);
+	}
+
 	HAL_Delay(2);
 
 
@@ -454,16 +464,18 @@ static void MX_GPIO_Init(void)
   }
 
   static void motor_set(int16_t cmd){
-	  //-3999 - 3999
-      if (cmd > 3999) cmd = 3999;
+      if (cmd > 3999)  cmd = 3999;
       if (cmd < -3999) cmd = -3999;
 
-      if (cmd >= 0) {
-          __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);
-          __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, (uint16_t)(-cmd));
-      } else {
-          __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, (uint16_t)cmd); // RPWM
-          __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);             // LPWM
+      // zero both first — prevents shoot-through on direction change
+      __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);
+      __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
+
+      // deadband: low duty cycle = near-stall = high peak current, so coast instead
+      if (cmd > 200) {
+          __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, (uint16_t)cmd);
+      } else if (cmd < -200) {
+          __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, (uint16_t)(-cmd));
       }
   }
 
