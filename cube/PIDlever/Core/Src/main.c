@@ -82,8 +82,13 @@ int main(void)
   int32_t error;
   int32_t prevError = 0;
   int32_t dTerm;
+  int32_t iAccum = 0; // running accumulator, add with prevError
   float p = 0.05;
+  float i = 0.00035;
   float d = 2.5;
+
+
+
   uint8_t printCount = 0;
 
 
@@ -141,7 +146,12 @@ int main(void)
 	error = adcRaw;
 
 	dTerm = error - prevError;
-	cmd = (int16_t)(p * (float)error + d * (float)dTerm);
+	iAccum += error;
+	// clamp iAccum so it doesn't wind up to huge values
+	if (iAccum >  50000) iAccum =  50000;
+	if (iAccum < -50000) iAccum = -50000;
+
+	cmd = (int16_t)(p * (float)error + i * (float)iAccum + d * (float)dTerm);
 	prevError = error;
 
 	motor_set(cmd);
